@@ -10,7 +10,7 @@ export { ort };
 // copies never go stale. ?models=local uses ./models/ instead (filled by
 // tools/setup_models.py) for development; local files are never cached.
 export const MODEL_REPO = 'HDiffusion/micro-manga-translator';
-export const MODEL_REV = 'main';
+export const MODEL_REV = '155eb403e87800b7fd866f143a8123e8e3590efa';
 export const LOCAL_MODELS = new URLSearchParams(location.search).get('models') === 'local';
 export const MODELS_URL = LOCAL_MODELS
   ? new URL('../models/', import.meta.url).href
@@ -35,6 +35,36 @@ async function openCache() {
   try { return await caches.open(CACHE); } catch { return null; }   // no Cache API (e.g. private mode)
 }
 
+// Files are stored in 32 MB chunks (url?chunk=i) plus an index entry at url
+// written last: Chrome's Cache Storage fails to put() a single 400 MB body.
+const CHUNK = 32 * 2 ** 20;
+const chunkUrl = (url, i) => `${url}?chunk=${i}`;
+
+async function cacheGet(cache, url) {
+  const index = await cache.match(url);
+  if (!index) return null;
+  const n = +index.headers.get('x-chunks');
+  if (!n) return new Uint8Array(await index.arrayBuffer());
+  const out = new Uint8Array(+index.headers.get('x-size'));
+  let off = 0;
+  for (let i = 0; i < n; i++) {
+    const part = await cache.match(chunkUrl(url, i));
+    if (!part) return null;
+    const b = new Uint8Array(await part.arrayBuffer());
+    out.set(b, off);
+    off += b.length;
+  }
+  return off === out.length ? out : null;
+}
+
+async function cachePut(cache, url, bytes) {
+  const n = Math.max(1, Math.ceil(bytes.length / CHUNK));
+  for (let i = 0; i < n; i++) {
+    await cache.put(chunkUrl(url, i), new Response(bytes.subarray(i * CHUNK, (i + 1) * CHUNK)));
+  }
+  await cache.put(url, new Response('', { headers: { 'x-chunks': String(n), 'x-size': String(bytes.length) } }));
+}
+
 /** Bytes of the model files that still need downloading (0 = all cached). */
 export async function missingBytes() {
   if (LOCAL_MODELS) return 0;
@@ -54,7 +84,7 @@ export async function pruneCache() {
   if (!cache) return;
   try {
     const keep = new Set(Object.keys(MODEL_FILES).map(urlOf));
-    for (const req of await cache.keys()) if (!keep.has(req.url)) await cache.delete(req);
+    for (const req of await cache.keys()) if (!keep.has(req.url.split('?')[0])) await cache.delete(req);
   } catch { /* best effort */ }
 }
 
@@ -69,11 +99,10 @@ export async function fetchModel(path, onProgress = () => {}) {
   const url = urlOf(path);
   const cache = await openCache();
   let cached = null;
-  try { cached = cache && await cache.match(url); } catch { /* fall through to network */ }
+  try { cached = cache && await cacheGet(cache, url); } catch { /* fall through to network */ }
   if (cached) {
-    const bytes = new Uint8Array(await cached.arrayBuffer());
-    onProgress(bytes.length, bytes.length);
-    return bytes;
+    onProgress(cached.length, cached.length);
+    return cached;
   }
   const res = await fetch(url);
   if (!res.ok) {
@@ -101,9 +130,8 @@ export async function fetchModel(path, onProgress = () => {}) {
   }
   onProgress(out.length, out.length);
   if (cache) {
-    try {
-      await cache.put(url, new Response(out, { headers: { 'Content-Type': 'application/octet-stream' } }));
-    } catch (e) { console.warn(`not cached (${path}):`, e); }   // quota: still usable this session
+    try { await cachePut(cache, url, out); }
+    catch (e) { console.warn(`not cached (${path}):`, e); }   // quota: still usable this session
   }
   return out;
 }
