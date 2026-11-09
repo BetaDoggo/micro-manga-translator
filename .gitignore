@@ -1,0 +1,8 @@
+/models/
+/build/
+__pycache__/
+*.part
+# test pages (no redistribution rights)
+/*.jpg
+/*.png
+/*.webp

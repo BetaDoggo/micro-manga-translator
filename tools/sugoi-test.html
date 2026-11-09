@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Sugoi WebGPU check</title></head>
+<body style="font:14px system-ui;background:#fff;color:#111">
+<p>Sugoi v4 WebGPU self-test: translates fixed sentences and exposes the results on
+<code>window.sugoiTest</code>. Compare with the Python check in convert_sugoi.py.</p>
+<pre id="log"></pre>
+<script type="module">
+import { Sugoi } from '../js/sugoi.js';
+const log = s => { document.getElementById('log').textContent += s + '\n'; };
+const samples = ['職場', '今日のあなたの仕事．．．他の部署の女性社員とね．．．',
+  '迷惑をかけないようしっかり業務をしてよね．．．', 'アナタが？', 'ｱｲｳ  テスト　abc',
+  'え⁉ うそでしょ！？', 'ふーん…そうなんだ♡', '①番の部屋に来て下さい', '俺は海賊王になる男だ！'];
+window.sugoiTest = { status: 'loading' };
+try {
+  let t = performance.now();
+  const s = await Sugoi.load();
+  const loadMs = performance.now() - t;
+  const tokens = samples.map(x => s.tokenizer.encode(x));
+  const res = {};
+  for (const beam of [1, 5]) {
+    t = performance.now();
+    const out = await s.translate(samples, { beam });
+    res[beam] = { ms: performance.now() - t, out };
+    t = performance.now();
+    await s.translate(samples, { beam });
+    res[beam].ms2 = performance.now() - t;
+  }
+  window.sugoiTest = { status: 'done', loadMs, tokens, res };
+  log(JSON.stringify(window.sugoiTest, null, 1));
+} catch (e) {
+  window.sugoiTest = { status: 'error', error: String(e && e.stack || e) };
+  log(String(e && e.stack || e));
+}
+</script></body></html>

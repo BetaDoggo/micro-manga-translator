@@ -1,0 +1,8 @@
+This repository bundles models under different licenses. Each folder's
+LICENSE file applies to the files in that folder:
+
+  ppocr-manga/LICENSE  Apache License 2.0 (PP-OCRv6_manga)
+  migan/LICENSE        MIT License (MI-GAN, Picsart AI Research)
+  sugoi-v4/LICENSE     NTT Terms of Use: research use only, no commercial use
+                       (Sugoi v4 ja->en; the ONNX files are derived data under
+                       the same terms)
