@@ -1,8 +1,6 @@
 # micro-manga-translator
 
-Manga translation that runs entirely in the browser on WebGPU (onnxruntime-web
-1.30.0): drop a Japanese manga page in, get an English page back. No server
-inference, no LLM. A static page: it works from GitHub Pages or any web server.
+A simple manga translator which is light enough to run entirely in a web page on your own hardware, nothing is uploaded. Quality is far from the best, but it's usable enough. Speed depends on your hardware. At time of writing firefox webgpu is bugged with fp16, so some parts will fall back to cpu. Use a chromium based browser if you can.
 
 | stage | model | notes |
 |---|---|---|
@@ -32,19 +30,11 @@ Files from an older `MODEL_REV` are pruned automatically.
 python serve.py                 # http://localhost:8000/
 ```
 
-Use `serve.py` rather than `python -m http.server`: on Windows the latter can
-serve `.js` as `text/plain`, which browsers refuse to run as modules.
-
-URL parameters: `?src=<image url>&run=1` loads and translates an image straight
-away, `&beam=N` sets the Sugoi beam size, `?models=local` loads models from
-`./models/` instead of Hugging Face (never cached).
-
 ## Building and publishing the models
 
 ```bash
 pip install requests torch ctranslate2 sentencepiece onnx onnxscript onnxruntime huggingface_hub
 python tools/setup_models.py    # fills models/ (downloads + Sugoi conversion)
-python tools/upload_models.py   # one commit to the Hugging Face repo; prints the hash for MODEL_REV
 ```
 
 `setup_models.py` downloads PP-OCRv6_manga and MI-GAN (pinned, SHA-256
@@ -53,10 +43,6 @@ verified) and the Sugoi v4 ctranslate2 weights (1.1 GB, to `build/`), then runs
 tensor file; no pickle is loaded), rebuilds the fairseq transformer in PyTorch,
 checks it token-for-token against ctranslate2 and the tokenizer port against
 sentencepiece, then exports fp16 ONNX (`--fp32-sugoi` for fp32).
-`upload_models.py` uploads the files listed in `MODEL_FILES` (`js/runtime.js`)
-plus the model card and license files in `hf/`.
-`tools/sugoi-test.html?models=local` translates fixed sentences on WebGPU to
-compare with the converter's Python check.
 
 ## Files
 
