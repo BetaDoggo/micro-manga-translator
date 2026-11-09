@@ -1,5 +1,7 @@
 # micro-manga-translator
 
+https://betadoggo.github.io/micro-manga-translator/
+
 A simple manga translator which is light enough to run entirely in a web page on your own hardware, nothing is uploaded. Quality is far from the best, but it's usable enough. Speed depends on your hardware. At time of writing firefox webgpu is bugged with fp16, so some parts will fall back to cpu. Use a chromium based browser if you can.
 
 | stage | model | notes |
